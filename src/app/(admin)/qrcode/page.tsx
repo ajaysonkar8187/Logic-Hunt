@@ -18,7 +18,8 @@ export default function QRCodePage() {
     });
   }, []);
 
-  const url = selectedSlug ? `${window.location.origin}/event/${selectedSlug}/login` : "";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "");
+  const url = selectedSlug ? `${baseUrl}/event/${selectedSlug}/login` : "";
 
   useEffect(() => {
     if (!url) return;
