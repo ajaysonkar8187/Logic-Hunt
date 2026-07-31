@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Admin Users ────────────────────────────────────────────────────────────
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Events ─────────────────────────────────────────────────────────────────
+
+enum EventStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+}
+
+model Event {
+  id            String       @id @default(cuid())
+  name          String
+  slug          String       @unique
+  description   String?
+  timeLimitMin  Int          @default(15)
+  status        EventStatus  @default(DRAFT)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  eventQuestions EventQuestion[]
+  participants   Participant[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+// ─── Questions ──────────────────────────────────────────────────────────────
+
+enum QuestionType {
+  MCQ
+  MULTI_SELECT
+  IMAGE_PUZZLE
+  SUDOKU
+  PATTERN
+  LOGICAL
+  RIDDLE
+  CIPHER
+  SPOT_DIFF
+  MATCH_PAIRS
+  ORDERING
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Question {
+  id            String       @id @default(cuid())
+  title         String
+  type          QuestionType
+  difficulty    Difficulty   @default(EASY)
+  category      String
+  options       Json?        // JSON array of option strings
+  correctAnswer Json         // string or string[] depending on type
+  explanation   String?
+  marks         Int          @default(1)
+  timeLimitSec  Int          @default(30)
+  hint          String?
+  imageUrl      String?
+  tags          String[]     @default([])
+  metadata      Json?        // For sudoku grids, cipher keys, etc.
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  eventQuestions EventQuestion[]
+  responses      QuestionResponse[]
+
+  @@index([category])
+  @@index([type])
+  @@index([difficulty])
+}
+
+// ─── Event ↔ Question join table ────────────────────────────────────────────
+
+model EventQuestion {
+  id         String   @id @default(cuid())
+  eventId    String
+  questionId String
+  sortOrder  Int      @default(0)
+
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, questionId])
+  @@index([eventId])
+}
+
+// ─── Participants ───────────────────────────────────────────────────────────
+
+enum ParticipantStatus {
+  REGISTERED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Participant {
+  id          String            @id @default(cuid())
+  name        String
+  email       String
+  eventId     String
+  status      ParticipantStatus @default(REGISTERED)
+  score       Float             @default(0)
+  timeTaken   Int?              // seconds
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  event      Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  responses  QuestionResponse[]
+  violations Violation[]
+
+  @@unique([email, eventId])
+  @@index([eventId])
+  @@index([email])
+  @@index([status])
+}
+
+// ─── Question Responses ─────────────────────────────────────────────────────
+
+model QuestionResponse {
+  id            String   @id @default(cuid())
+  participantId String
+  questionId    String
+  answer        Json?    // student's answer
+  isCorrect     Boolean  @default(false)
+  score         Float    @default(0)
+  timeTaken     Int?     // seconds spent on this question
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, questionId])
+  @@index([participantId])
+  @@index([questionId])
+}
+
+// ─── Violations (anti-cheat logs) ───────────────────────────────────────────
+
+enum ViolationType {
+  TAB_SWITCH
+  WINDOW_BLUR
+  FULLSCREEN_EXIT
+  COPY_ATTEMPT
+  DEVTOOLS_ATTEMPT
+  RECONNECT
+}
+
+model Violation {
+  id            String        @id @default(cuid())
+  participantId String
+  type          ViolationType
+  timestamp     DateTime      @default(now())
+  details       String?
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([participantId])
+}
