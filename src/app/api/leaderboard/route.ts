@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const participants = await prisma.participant.findMany({
       where: { eventId },
       include: { _count: { select: { violations: true } } },
-      orderBy: [{ score: "desc" }, { completedAt: "asc" }],
+      orderBy: [{ score: "desc" }, { timeTaken: "asc" }],
     });
 
     const totalMarks = await prisma.eventQuestion.findMany({
