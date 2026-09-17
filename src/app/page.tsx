@@ -51,7 +51,7 @@ export default function HomePage() {
               Join Challenge →
             </Link>
             <Link
-              href="/login"
+              href="/login?role=admin"
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl border border-border bg-card hover:bg-accent font-semibold text-base transition-colors"
             >
               <Shield className="w-4 h-4" /> Admin Panel
