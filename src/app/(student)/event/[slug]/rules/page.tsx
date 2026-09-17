@@ -24,18 +24,24 @@ export default function RulesPage() {
   const rules = [
     { icon: "📝", text: `${qCount} questions to solve` },
     { icon: "🏆", text: `${totalMarks} total marks` },
-    { icon: "⏱️", text: `${event?.timeLimitMin || 15} minutes overall time limit` },
     { icon: "⏳", text: "Each question has its own timer — auto-advances when it expires" },
+    { icon: "⏮️", text: "Once you move to the next question, you cannot go back" },
     { icon: "✅", text: "No negative marking" },
     { icon: "1️⃣", text: "One attempt only — you cannot retake the exam" },
     { icon: "🔀", text: "Questions and options are randomized" },
     { icon: "🔒", text: "Scores and rankings will not be shown after submission" },
-    { icon: "🚫", text: "Do not switch tabs or leave fullscreen — activity is logged" },
-    { icon: "📤", text: "Auto-submits when the overall timer expires" },
+    { icon: "🖥️", text: "The exam runs in fullscreen — exiting it is logged as a violation" },
+    { icon: "🚫", text: "Do not switch tabs, leave fullscreen, or copy/paste — activity is logged" },
+    { icon: "📤", text: "3 logged violations will auto-submit your exam" },
   ];
 
   const handleBegin = async () => {
     if (!studentInfo) return;
+    const el = document.documentElement as any;
+    const requestFs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (requestFs) {
+      try { await requestFs.call(el); } catch {}
+    }
     await fetch("/api/exam", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

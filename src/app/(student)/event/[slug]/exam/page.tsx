@@ -17,9 +17,16 @@ export default function ExamPage() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [showWarning, setShowWarning] = useState(false);
   const [warningMsg, setWarningMsg] = useState("");
+  const [needsFullscreen, setNeedsFullscreen] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const startTimeRef = useRef(Date.now());
   const autoSaveRef = useRef<NodeJS.Timeout>();
+
+  const enterFullscreen = useCallback(() => {
+    const el = document.documentElement as any;
+    const requestFs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (requestFs) requestFs.call(el).catch(() => {});
+  }, []);
 
   // Fetch event data
   useEffect(() => {
@@ -89,6 +96,28 @@ export default function ExamPage() {
     return () => clearInterval(autoSaveRef.current);
   }, [exam.submitted, exam.answers, currentQ?.id, studentInfo]);
 
+  // Enter fullscreen on mount (best-effort; requires a prior user gesture to succeed)
+  useEffect(() => {
+    enterFullscreen();
+  }, [enterFullscreen]);
+
+  // Fullscreen exit detection
+  useEffect(() => {
+    if (exam.submitted) return;
+    const handleFsChange = () => {
+      if (!document.fullscreenElement) {
+        const v = { type: "FULLSCREEN_EXIT", timestamp: Date.now() };
+        addViolation(v);
+        if (studentInfo) fetch("/api/exam", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "violation", participantId: studentInfo.id, type: "FULLSCREEN_EXIT" }) }).catch(() => {});
+        setWarningMsg("You exited fullscreen. This activity has been logged.");
+        setNeedsFullscreen(true);
+        setShowWarning(true);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, [exam.submitted, studentInfo, addViolation]);
+
   // Anti-cheat
   useEffect(() => {
     if (exam.submitted) return;
@@ -139,6 +168,7 @@ export default function ExamPage() {
   const handleSubmit = useCallback(async () => {
     if (exam.submitted) return;
     setExamField("submitted", true);
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
     const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
 
     await fetch("/api/exam", {
@@ -173,12 +203,20 @@ export default function ExamPage() {
     <div className="min-h-screen bg-background flex flex-col exam-active">
       {/* Warning overlay */}
       {showWarning && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5" onClick={() => setShowWarning(false)}>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5" onClick={() => { if (!needsFullscreen) setShowWarning(false); }}>
           <div className="bg-card border border-border rounded-2xl p-8 max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
             <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
             <h3 className="font-bold text-lg mb-2 text-destructive">Warning</h3>
             <p className="text-sm text-muted-foreground mb-5">{warningMsg}</p>
-            <button onClick={() => setShowWarning(false)} className="px-6 py-2.5 rounded-xl bg-brand-500 text-white font-bold text-sm">Return to Exam</button>
+            <button
+              onClick={() => {
+                if (needsFullscreen) { enterFullscreen(); setNeedsFullscreen(false); }
+                setShowWarning(false);
+              }}
+              className="px-6 py-2.5 rounded-xl bg-brand-500 text-white font-bold text-sm"
+            >
+              {needsFullscreen ? "Return to Fullscreen" : "Return to Exam"}
+            </button>
           </div>
         </div>
       )}
