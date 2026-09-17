@@ -19,11 +19,9 @@ export interface ExamState {
   currentIndex: number;
   answers: Record<string, unknown>;
   violations: Violation[];
-  globalTimeLeft: number;
   questionTimeLeft: number;
   startedAt: number | null;
   submitted: boolean;
-  lockedQuestions: string[];
 }
 
 // ─── App Store ──────────────────────────────────────────────────────────────
@@ -38,7 +36,6 @@ interface AppStore {
   setExamField: <K extends keyof ExamState>(key: K, value: ExamState[K]) => void;
   setAnswer: (questionId: string, answer: unknown) => void;
   addViolation: (violation: Violation) => void;
-  lockQuestion: (questionId: string) => void;
   resetExam: () => void;
 }
 
@@ -46,11 +43,9 @@ const defaultExam: ExamState = {
   currentIndex: 0,
   answers: {},
   violations: [],
-  globalTimeLeft: 0,
   questionTimeLeft: 0,
   startedAt: null,
   submitted: false,
-  lockedQuestions: [],
 };
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -72,15 +67,6 @@ export const useAppStore = create<AppStore>((set) => ({
       exam: {
         ...state.exam,
         violations: [...state.exam.violations, violation],
-      },
-    })),
-  lockQuestion: (questionId) =>
-    set((state) => ({
-      exam: {
-        ...state.exam,
-        lockedQuestions: state.exam.lockedQuestions.includes(questionId)
-          ? state.exam.lockedQuestions
-          : [...state.exam.lockedQuestions, questionId],
       },
     })),
   resetExam: () => set({ exam: { ...defaultExam } }),

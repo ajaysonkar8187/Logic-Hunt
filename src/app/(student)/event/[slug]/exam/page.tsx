@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Brain, Clock, ChevronLeft, ChevronRight, Check, AlertTriangle } from "lucide-react";
+import { Brain, ChevronRight, Check, AlertTriangle } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { formatTime, seededShuffle } from "@/lib/utils";
 import { QuestionRenderer } from "@/components/exam/question-renderer";
@@ -11,7 +11,7 @@ export default function ExamPage() {
   const router = useRouter();
   const params = useParams();
   const slug = params.slug as string;
-  const { studentInfo, exam, setExamField, setAnswer, addViolation, lockQuestion } = useAppStore();
+  const { studentInfo, exam, setExamField, setAnswer, addViolation } = useAppStore();
 
   const [event, setEvent] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -38,7 +38,6 @@ export default function ExamPage() {
             : q.options,
         }));
         setQuestions(shuffled);
-        setExamField("globalTimeLeft", d.data.timeLimitMin * 60);
         setExamField("questionTimeLeft", shuffled[0]?.timeLimitSec || 30);
         setExamField("startedAt", Date.now());
       });
@@ -46,16 +45,6 @@ export default function ExamPage() {
 
   const currentQ = questions[exam.currentIndex];
   const totalQ = questions.length;
-
-  // Global timer
-  useEffect(() => {
-    if (exam.submitted || !questions.length) return;
-    const iv = setInterval(() => {
-      setExamField("globalTimeLeft", Math.max(0, exam.globalTimeLeft - 1));
-      if (exam.globalTimeLeft <= 1) handleSubmit();
-    }, 1000);
-    return () => clearInterval(iv);
-  }, [exam.globalTimeLeft, exam.submitted, questions.length]);
 
   // Per-question timer
   useEffect(() => {
@@ -69,8 +58,7 @@ export default function ExamPage() {
     const iv = setInterval(() => {
       const newTime = exam.questionTimeLeft - 1;
       if (newTime <= 0) {
-        lockQuestion(currentQ.id);
-        setWarningMsg("Time's up for this question. It is now locked and cannot be reopened.");
+        setWarningMsg("Time's up for this question. Moving to the next question — you cannot come back to it.");
         setShowWarning(true);
         if (exam.currentIndex < totalQ - 1) {
           setExamField("currentIndex", exam.currentIndex + 1);
@@ -82,7 +70,7 @@ export default function ExamPage() {
       }
     }, 1000);
     return () => clearInterval(iv);
-  }, [exam.questionTimeLeft, exam.submitted, exam.currentIndex, totalQ, currentQ, lockQuestion]);
+  }, [exam.questionTimeLeft, exam.submitted, exam.currentIndex, totalQ, currentQ]);
 
   // Auto-save every 10 seconds
   useEffect(() => {
@@ -178,19 +166,8 @@ export default function ExamPage() {
     return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground text-sm">Loading exam...</p></div>;
   }
 
-  const isLowGlobal = exam.globalTimeLeft <= 300;
   const isLowQ = exam.questionTimeLeft <= 10;
   const typeLabel: Record<string, string> = { MCQ: "MCQ", MULTI_SELECT: "Multi-Select", RIDDLE: "Riddle", CIPHER: "Cipher", ORDERING: "Ordering", PATTERN: "Pattern", LOGICAL: "Logical" };
-  const isLocked = exam.lockedQuestions.includes(currentQ.id);
-  const prevUnlockedIndex = (() => {
-    for (let i = exam.currentIndex - 1; i >= 0; i--) {
-      if (!exam.lockedQuestions.includes(questions[i].id)) return i;
-    }
-    return -1;
-  })();
-  const goPrevious = () => {
-    if (prevUnlockedIndex >= 0) setExamField("currentIndex", prevUnlockedIndex);
-  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col exam-active">
@@ -213,9 +190,6 @@ export default function ExamPage() {
           <span className="font-bold text-sm">Logic Hunt</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold tabular-nums ${isLowGlobal ? "bg-destructive/10 text-destructive timer-warning" : "bg-brand-500/10 text-brand-500"}`}>
-            <Clock className="w-3.5 h-3.5" /> {formatTime(exam.globalTimeLeft)}
-          </div>
           {exam.violations.length > 0 && (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">⚠ {exam.violations.length}</span>
           )}
@@ -260,32 +234,21 @@ export default function ExamPage() {
             <div className="px-3 py-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm mb-4">💡 {currentQ.hint}</div>
           )}
 
-          {isLocked && (
-            <div className="px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-sm mb-4">
-              ⏱ Time ran out for this question. It's locked and can no longer be answered.
-            </div>
-          )}
-
           <div className="flex-1">
             <QuestionRenderer
               question={currentQ}
               answer={exam.answers[currentQ.id]}
               onAnswer={(v) => setAnswer(currentQ.id, v)}
-              disabled={isLocked}
             />
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex justify-between items-center mt-4 gap-3">
-          <button
-            onClick={goPrevious}
-            disabled={prevUnlockedIndex < 0}
-            className="flex items-center gap-1 px-4 py-2.5 rounded-xl border border-border text-sm font-medium transition-colors hover:bg-accent disabled:opacity-30"
-          >
-            <ChevronLeft className="w-4 h-4" /> Previous
-          </button>
+        <p className="text-center text-xs text-muted-foreground mt-3">
+          Once you move to the next question, you cannot come back to this one.
+        </p>
 
+        {/* Navigation */}
+        <div className="flex justify-end items-center mt-4 gap-3">
           {exam.currentIndex === totalQ - 1 ? (
             <button
               onClick={() => { if (confirm("Submit your exam? You cannot change answers after this.")) handleSubmit(); }}
