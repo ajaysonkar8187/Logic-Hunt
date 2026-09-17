@@ -32,7 +32,7 @@ export default function StudentLoginPage() {
   const handleLogin = async () => {
     if (!name.trim() || name.trim().length < 2) { setError("Name must be at least 2 characters."); return; }
     if (!/^[a-zA-Z\s]+$/.test(name.trim())) { setError("Name should contain only letters and spaces."); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError("Enter a valid email address."); return; }
+    if (!/^[^\s@]+@sitare\.org$/i.test(email.trim())) { setError("Only @sitare.org email addresses are allowed."); return; }
     if (!eventData) { setError("Event not found."); return; }
     if (eventData.status !== "ACTIVE") { setError("This competition is not active yet."); return; }
 
@@ -91,7 +91,7 @@ export default function StudentLoginPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Email</label>
-              <input type="email" className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" placeholder="john@university.edu" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
+              <input type="email" className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" placeholder="you@sitare.org" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
             </div>
             <button onClick={handleLogin} disabled={loading || !isActive} className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-base transition-colors disabled:opacity-50">
               {loading ? "Joining…" : "Start Challenge →"}

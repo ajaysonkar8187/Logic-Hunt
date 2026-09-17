@@ -11,9 +11,10 @@ interface QuestionRendererProps {
   };
   answer: unknown;
   onAnswer: (value: unknown) => void;
+  disabled?: boolean;
 }
 
-export function QuestionRenderer({ question, answer, onAnswer }: QuestionRendererProps) {
+export function QuestionRenderer({ question, answer, onAnswer, disabled = false }: QuestionRendererProps) {
   const { type, options } = question;
 
   // ── MCQ / Riddle / Pattern (radio) ──────────────────────────────────────
@@ -26,7 +27,8 @@ export function QuestionRenderer({ question, answer, onAnswer }: QuestionRendere
             <button
               key={i}
               onClick={() => onAnswer(opt)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left text-sm transition-all ${
+              disabled={disabled}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                 selected
                   ? "border-brand-500 bg-brand-500/10"
                   : "border-border hover:border-muted-foreground/30 hover:bg-accent/50"
@@ -56,7 +58,8 @@ export function QuestionRenderer({ question, answer, onAnswer }: QuestionRendere
             <button
               key={i}
               onClick={() => onAnswer(checked ? selected.filter((s) => s !== opt) : [...selected, opt])}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left text-sm transition-all ${
+              disabled={disabled}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                 checked
                   ? "border-brand-500 bg-brand-500/10"
                   : "border-border hover:border-muted-foreground/30 hover:bg-accent/50"
@@ -82,11 +85,12 @@ export function QuestionRenderer({ question, answer, onAnswer }: QuestionRendere
       <div>
         <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Your Answer</label>
         <input
-          className="w-full px-4 py-3 rounded-xl border border-border bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring transition"
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring transition disabled:opacity-50 disabled:cursor-not-allowed"
           placeholder="Type your decoded answer..."
           value={(answer as string) || ""}
           onChange={(e) => onAnswer(e.target.value)}
           autoComplete="off"
+          disabled={disabled}
         />
       </div>
     );
@@ -120,10 +124,10 @@ export function QuestionRenderer({ question, answer, onAnswer }: QuestionRendere
               <span className="w-6 text-center font-extrabold text-brand-500 text-sm">{i + 1}</span>
               <span className="flex-1 text-sm">{item}</span>
               <div className="flex flex-col">
-                <button onClick={() => moveUp(i)} disabled={i === 0} className="p-0.5 disabled:opacity-20">
+                <button onClick={() => moveUp(i)} disabled={disabled || i === 0} className="p-0.5 disabled:opacity-20">
                   <ChevronUp className="w-4 h-4" />
                 </button>
-                <button onClick={() => moveDown(i)} disabled={i === items.length - 1} className="p-0.5 disabled:opacity-20">
+                <button onClick={() => moveDown(i)} disabled={disabled || i === items.length - 1} className="p-0.5 disabled:opacity-20">
                   <ChevronDown className="w-4 h-4" />
                 </button>
               </div>
@@ -139,11 +143,12 @@ export function QuestionRenderer({ question, answer, onAnswer }: QuestionRendere
     <div>
       <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Your Answer</label>
       <input
-        className="w-full px-4 py-3 rounded-xl border border-border bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring transition"
+        className="w-full px-4 py-3 rounded-xl border border-border bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring transition disabled:opacity-50 disabled:cursor-not-allowed"
         placeholder="Type your answer..."
         value={(answer as string) || ""}
         onChange={(e) => onAnswer(e.target.value)}
         autoComplete="off"
+        disabled={disabled}
       />
     </div>
   );

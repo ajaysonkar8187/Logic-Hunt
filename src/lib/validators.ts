@@ -7,7 +7,10 @@ export const studentLoginSchema = z.object({
     .min(2, "Name must be at least 2 characters")
     .max(100, "Name must be under 100 characters")
     .regex(/^[a-zA-Z\s]+$/, "Name should contain only letters and spaces"),
-  email: z.string().email("Enter a valid email address"),
+  email: z
+    .string()
+    .email("Enter a valid email address")
+    .refine((val) => val.toLowerCase().endsWith("@sitare.org"), "Only @sitare.org email addresses are allowed"),
   eventId: z.string().min(1),
 });
 

@@ -11,7 +11,7 @@ export default function ExamPage() {
   const router = useRouter();
   const params = useParams();
   const slug = params.slug as string;
-  const { studentInfo, exam, setExamField, setAnswer, addViolation } = useAppStore();
+  const { studentInfo, exam, setExamField, setAnswer, addViolation, lockQuestion } = useAppStore();
 
   const [event, setEvent] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -69,6 +69,9 @@ export default function ExamPage() {
     const iv = setInterval(() => {
       const newTime = exam.questionTimeLeft - 1;
       if (newTime <= 0) {
+        lockQuestion(currentQ.id);
+        setWarningMsg("Time's up for this question. It is now locked and cannot be reopened.");
+        setShowWarning(true);
         if (exam.currentIndex < totalQ - 1) {
           setExamField("currentIndex", exam.currentIndex + 1);
         } else {
@@ -79,7 +82,7 @@ export default function ExamPage() {
       }
     }, 1000);
     return () => clearInterval(iv);
-  }, [exam.questionTimeLeft, exam.submitted, exam.currentIndex, totalQ]);
+  }, [exam.questionTimeLeft, exam.submitted, exam.currentIndex, totalQ, currentQ, lockQuestion]);
 
   // Auto-save every 10 seconds
   useEffect(() => {
@@ -159,6 +162,18 @@ export default function ExamPage() {
     router.push(`/event/${slug}/thank-you`);
   }, [exam.submitted, exam.answers, studentInfo, slug, router, setExamField]);
 
+  // Auto-submit after 3 violations
+  const autoSubmitRef = useRef(false);
+  useEffect(() => {
+    if (exam.submitted || autoSubmitRef.current) return;
+    if (exam.violations.length >= 3) {
+      autoSubmitRef.current = true;
+      setWarningMsg("Multiple violations detected. Your exam has been submitted automatically.");
+      setShowWarning(true);
+      handleSubmit();
+    }
+  }, [exam.violations.length, exam.submitted, handleSubmit]);
+
   if (!currentQ) {
     return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground text-sm">Loading exam...</p></div>;
   }
@@ -166,6 +181,16 @@ export default function ExamPage() {
   const isLowGlobal = exam.globalTimeLeft <= 300;
   const isLowQ = exam.questionTimeLeft <= 10;
   const typeLabel: Record<string, string> = { MCQ: "MCQ", MULTI_SELECT: "Multi-Select", RIDDLE: "Riddle", CIPHER: "Cipher", ORDERING: "Ordering", PATTERN: "Pattern", LOGICAL: "Logical" };
+  const isLocked = exam.lockedQuestions.includes(currentQ.id);
+  const prevUnlockedIndex = (() => {
+    for (let i = exam.currentIndex - 1; i >= 0; i--) {
+      if (!exam.lockedQuestions.includes(questions[i].id)) return i;
+    }
+    return -1;
+  })();
+  const goPrevious = () => {
+    if (prevUnlockedIndex >= 0) setExamField("currentIndex", prevUnlockedIndex);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col exam-active">
@@ -235,11 +260,18 @@ export default function ExamPage() {
             <div className="px-3 py-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm mb-4">💡 {currentQ.hint}</div>
           )}
 
+          {isLocked && (
+            <div className="px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-sm mb-4">
+              ⏱ Time ran out for this question. It's locked and can no longer be answered.
+            </div>
+          )}
+
           <div className="flex-1">
             <QuestionRenderer
               question={currentQ}
               answer={exam.answers[currentQ.id]}
               onAnswer={(v) => setAnswer(currentQ.id, v)}
+              disabled={isLocked}
             />
           </div>
         </div>
@@ -247,8 +279,8 @@ export default function ExamPage() {
         {/* Navigation */}
         <div className="flex justify-between items-center mt-4 gap-3">
           <button
-            onClick={() => setExamField("currentIndex", Math.max(0, exam.currentIndex - 1))}
-            disabled={exam.currentIndex === 0}
+            onClick={goPrevious}
+            disabled={prevUnlockedIndex < 0}
             className="flex items-center gap-1 px-4 py-2.5 rounded-xl border border-border text-sm font-medium transition-colors hover:bg-accent disabled:opacity-30"
           >
             <ChevronLeft className="w-4 h-4" /> Previous
