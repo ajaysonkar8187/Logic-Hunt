@@ -136,6 +136,65 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    // ── Response Sheet (only once the admin has ended the event) ───────────
+    if (action === "results") {
+      const { participantId, email, eventId } = body;
+
+      const participant = participantId
+        ? await prisma.participant.findUnique({ where: { id: participantId } })
+        : email && eventId
+        ? await prisma.participant.findUnique({ where: { email_eventId: { email: String(email).toLowerCase(), eventId } } })
+        : null;
+
+      if (!participant) {
+        return NextResponse.json({ success: false, error: "Participant not found" }, { status: 404 });
+      }
+
+      const event = await prisma.event.findUnique({ where: { id: participant.eventId } });
+      if (!event) return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 });
+
+      if (event.status !== "COMPLETED") {
+        return NextResponse.json({ success: false, error: "Results are not available until the organizer ends the event" }, { status: 403 });
+      }
+      if (participant.status !== "COMPLETED") {
+        return NextResponse.json({ success: false, error: "You have not submitted this exam" }, { status: 403 });
+      }
+
+      const eventQuestions = await prisma.eventQuestion.findMany({
+        where: { eventId: participant.eventId },
+        include: { question: true },
+        orderBy: { sortOrder: "asc" },
+      });
+      const responses = await prisma.questionResponse.findMany({ where: { participantId: participant.id } });
+      const responseMap = new Map(responses.map((r) => [r.questionId, r]));
+
+      const sheet = eventQuestions.map((eq) => {
+        const q = eq.question;
+        const r = responseMap.get(q.id);
+        return {
+          questionId: q.id,
+          title: q.title,
+          type: q.type,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation,
+          marks: q.marks,
+          studentAnswer: r?.answer ?? null,
+          isCorrect: r?.isCorrect ?? false,
+          score: r?.score ?? 0,
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          participant: { name: participant.name, email: participant.email, score: participant.score, timeTaken: participant.timeTaken },
+          totalMarks: sheet.reduce((a, q) => a + q.marks, 0),
+          sheet,
+        },
+      });
+    }
+
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (error) {
     console.error("POST /api/exam error:", error);
